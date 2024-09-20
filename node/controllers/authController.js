@@ -1,17 +1,22 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const postgre = require('./db'); 
 
-let users = []; // En un escenario real, deberías usar una base de datos.
 
 const register = async (req, res) => {
-  const { username, password } = req.body;
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ username, password: hashedPassword });
-
-  const token = jwt.sign({ username }, 'tu_clave_secreta', { expiresIn: '1h' });
-  res.json({ token });
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const sql = 'INSERT INTO users(username, password) VALUES($1, $2) RETURNING *';
+    const { rows } = await postgre.query(sql, [username, hashedPassword]);
+    const token = jwt.sign({ username: rows[0].username }, 'tu_clave_secreta', { expiresIn: '1h' });
+    res.json({ msg: 'Registro exitoso', token });
+  } catch (error) {
+    console.error('Error en el registro:', error);
+    res.status(500).json({ msg: 'Error en el registro', error: error.message });
+  }
 };
+
 
 const login = async (req, res) => {
   const { username, password } = req.body;
